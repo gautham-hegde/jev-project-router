@@ -15,11 +15,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
-  FieldContent,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -83,15 +80,8 @@ const FormControl = ({
 };
 
 /** Shares accessible form behavior, samples, and result state across all examples. */
-export const RouterForm = ({
-  example,
-  emailConfigured,
-}: {
-  example: Example;
-  emailConfigured: boolean;
-}) => {
+export const RouterForm = ({ example }: { example: Example }) => {
   const [values, setValues] = useState<Record<string, string>>({});
-  const [sendEmail, setSendEmail] = useState(false);
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const [pending, startTransition] = useTransition();
   const submitting = useRef(false);
@@ -109,16 +99,13 @@ export const RouterForm = ({
     submitting.current = true;
     const formData = new FormData(event.currentTarget);
     formData.set("example", example.id);
-    formData.set("submissionId", crypto.randomUUID());
-    formData.set("sendEmail", String(sendEmail));
     setResult(null);
     startTransition(async () => {
       try {
         setResult(await submitForm(formData));
       } catch {
         setResult({
-          message:
-            "The connection was interrupted. Your inputs are preserved. If you requested an email, check Resend before submitting again.",
+          message: "The connection was interrupted. Your inputs are preserved.",
           status: "error",
         });
       }
@@ -129,7 +116,6 @@ export const RouterForm = ({
   const resetForm = () => {
     setValues({});
     setResult(null);
-    setSendEmail(false);
   };
 
   const renderField = (field: FormField) => (
@@ -183,7 +169,6 @@ export const RouterForm = ({
                       onClick={() => {
                         setValues(sample.values);
                         setResult(null);
-                        setSendEmail(false);
                       }}
                     >
                       {sample.label}
@@ -198,28 +183,6 @@ export const RouterForm = ({
                     {example.fields.slice(0, 2).map(renderField)}
                   </FieldGroup>
                   {example.fields.slice(2).map(renderField)}
-                  {emailConfigured && (
-                    <Field orientation="horizontal" data-disabled={pending}>
-                      <Checkbox
-                        id="sendEmail"
-                        checked={sendEmail}
-                        disabled={pending}
-                        onCheckedChange={(checked) => {
-                          setSendEmail(checked);
-                          setResult(null);
-                        }}
-                        aria-describedby="email-help"
-                      />
-                      <FieldContent>
-                        <FieldLabel htmlFor="sendEmail">
-                          Email the receiving team
-                        </FieldLabel>
-                        <FieldDescription id="email-help">
-                          Send a copy to the selected team’s inbox.
-                        </FieldDescription>
-                      </FieldContent>
-                    </Field>
-                  )}
                 </FieldGroup>
               </FieldSet>
             </form>

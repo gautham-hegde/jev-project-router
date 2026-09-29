@@ -1,5 +1,5 @@
 /** A supported form example and its URL segment. */
-export type ExampleId = "leads" | "contact" | "issues";
+export type ExampleId = "projects" | "contact" | "issues";
 
 /** A form control whose constraints also drive server validation. */
 export interface FormField {
@@ -19,6 +19,24 @@ interface DestinationDefinition {
   criteria: string;
 }
 
+/** One ordered level of a RICE dimension: a description Jev scores against, and its domain value. */
+export interface RiceLevel {
+  label: string;
+  value: number;
+}
+
+/**
+ * Ordered levels for each RICE dimension, scored by Jev as a single `score` question per dimension.
+ * @remarks Reach and Impact follow the standard RICE scale; Effort is expressed in person-months.
+ * Confidence here is a RICE input describing evidence quality, distinct from Jev's own routing confidence.
+ */
+interface RiceCriteria {
+  reach: readonly [RiceLevel, RiceLevel, ...RiceLevel[]];
+  impact: readonly [RiceLevel, RiceLevel, ...RiceLevel[]];
+  confidence: readonly [RiceLevel, RiceLevel, ...RiceLevel[]];
+  effort: readonly [RiceLevel, RiceLevel, ...RiceLevel[]];
+}
+
 /** The shared source of truth for a page, its form, and both routing models. */
 interface ExampleDefinition {
   id: ExampleId;
@@ -28,6 +46,8 @@ interface ExampleDefinition {
   fields: readonly FormField[];
   destinations: readonly [DestinationDefinition, ...DestinationDefinition[]];
   samples: readonly { label: string; values: Record<string, string> }[];
+  /** Present only for examples that also stack-rank submissions with a RICE score. */
+  rice?: RiceCriteria;
 }
 
 const field = (
@@ -120,6 +140,7 @@ export const examples = {
     id: "contact",
     instructions:
       "Choose the team that can resolve the main request. Distinguish a request to return money from a request to explain or correct an invoice. For mixed topics, select the owner of the immediate blocker or explicitly requested resolution. A billing mention alone does not make a message a billing request. Use contact_triage if no primary need can be established.",
+    rice: undefined,
     samples: [
       {
         label: "Clear request",
@@ -237,6 +258,7 @@ export const examples = {
     id: "issues",
     instructions:
       "Select the most likely first engineering owner using observed behavior, reproduction evidence, environment, and impact. Prefer concrete evidence over a reporter’s speculation. Accessibility barriers belong to accessibility; invalid sessions or token validation belong to identity; successful API responses with incorrect rendering belong to frontend. Cross-service failures suggest infrastructure, while third-party synchronization points to integrations. Use engineering_triage when the available evidence cannot distinguish owners. This is an ownership suggestion, not a confirmed root cause.",
+    rice: undefined,
     samples: [
       {
         label: "Clear request",
@@ -281,110 +303,204 @@ export const examples = {
     ],
     title: "Issue Report",
   },
-  leads: {
-    description: "Tell us about your project and what you need.",
+  projects: {
+    description:
+      "Describe a project proposal so it can be routed to an owning team and stack-ranked with RICE.",
     destinations: [
       {
         criteria:
-          "An early-stage team needs help getting started, choosing a basic setup, or launching its first project without a substantial technical blocker.",
-        id: "startup_onboarding",
-        specialty: "Onboarding",
-        team: "Startup",
-      },
-      {
-        criteria:
-          "An early-stage project needs architecture guidance, feasibility review, or help with a specific technical challenge before launch.",
-        id: "startup_technical",
-        specialty: "Technical advisory",
-        team: "Startup",
-      },
-      {
-        criteria:
-          "An established, growing customer wants to expand usage, discuss commercial plans, or support more teams without a specific integration or enterprise procurement requirement.",
-        id: "growth_sales",
-        specialty: "Sales",
+          "New-user acquisition, onboarding conversion, or top-of-funnel growth experiments.",
+        id: "growth_acquisition",
+        specialty: "Acquisition",
         team: "Growth",
       },
       {
         criteria:
-          "A growing customer needs to connect an existing stack, migrate a workflow, or implement a concrete integration.",
-        id: "growth_integrations",
-        specialty: "Integrations",
+          "Checkout, merchandising, or purchase-funnel improvements for existing traffic; conversion-rate optimization on already-acquired users.",
+        id: "growth_conversion",
+        specialty: "Conversion",
         team: "Growth",
       },
       {
         criteria:
-          "A complex organization needs enterprise architecture, scale, SSO, deployment, security design, or a technical proof of concept.",
-        id: "enterprise_solutions",
-        specialty: "Solutions engineering",
-        team: "Enterprise",
+          "Payment methods, checkout reliability, transaction processing, or checkout-time fraud and risk controls.",
+        id: "payments_checkout",
+        specialty: "Checkout",
+        team: "Payments",
       },
       {
         criteria:
-          "The immediate blocker is a purchasing process: vendor onboarding, contracts, legal terms, security questionnaires, or compliance paperwork. This can apply even to a small company.",
-        id: "enterprise_procurement",
-        specialty: "Procurement",
-        team: "Enterprise",
+          "Scalability, reliability, performance, or core platform architecture work not owned by a specific product surface.",
+        id: "platform_infra",
+        specialty: "Infrastructure",
+        team: "Platform",
       },
       {
         criteria:
-          "There is too little information to choose an owner, incompatible requests lack a clear main need, or the inquiry does not fit the specialties.",
-        id: "sales_triage",
+          "New-market or new-locale launches, language and currency support, or region-specific regulatory adaptation.",
+        id: "localization_intl",
+        specialty: "Internationalization",
+        team: "Localization",
+      },
+      {
+        criteria:
+          "Fraud, abuse, account security, or policy enforcement outside the checkout flow itself.",
+        id: "trust_safety",
+        specialty: "Trust and safety",
+        team: "Trust & Safety",
+      },
+      {
+        criteria:
+          "Reporting, experimentation infrastructure, instrumentation, or decision-support tooling requested as the primary deliverable.",
+        id: "data_analytics",
+        specialty: "Analytics",
+        team: "Data",
+      },
+      {
+        criteria:
+          "Insufficient detail to identify a primary owner, or a request that spans several unrelated teams without a clear lead.",
+        id: "eng_triage",
         specialty: "Triage",
-        team: "Sales",
+        team: "Engineering",
       },
     ],
     fields: [
       ...identityFields,
-      field("company", "Company", "Acme Studio"),
-      field("companySize", "Company size", "e.g. 12 people"),
+      field("projectName", "Project name", "Checkout retry flow"),
       field(
-        "projectNeeds",
-        "What are you building?",
-        "Tell us about your goals, technical needs, and what’s getting in the way.",
+        "description",
+        "Description",
+        "What problem does this solve, what's the proposed solution, and why now?",
         "textarea"
       ),
-      field("timeline", "Timeline", "e.g. Launching in six weeks"),
+      field(
+        "gmvImpact",
+        "Estimated GMV impact",
+        "e.g. +$120k monthly GMV, or the metric it moves and by how much"
+      ),
+      field(
+        "bizPriority",
+        "Business priority",
+        "e.g. P0, tied to Q3 OKR; how the requester ranks this"
+      ),
+      field("locales", "Locales", "e.g. US, CA, UK, or Global"),
+      field(
+        "timeline",
+        "Timeline",
+        "e.g. Needed before Q3 close",
+        "text",
+        false
+      ),
     ],
-    id: "leads",
+    id: "projects",
     instructions:
-      "Choose the best first owner for this sales inquiry. Consider the actual project, technical requirements, buying process, and timeline together. Company size alone must not determine the destination. Procurement requirements take precedence over general enterprise discovery; concrete integration work takes precedence over a general sales conversation. Use sales_triage when evidence is insufficient, contradictory, or outside the listed specialties.",
+      "Choose the team best positioned to own this project, based on its description, target locales, and estimated GMV impact. Business priority is the requester's own urgency claim, not a routing rule by itself; use it only as supporting evidence. Prefer the team whose specialty matches the primary product or technical surface being changed, not every team the description mentions in passing. Use eng_triage when the description is too thin to identify a primary owner, or when it spans unrelated needs with no clear lead.",
+    rice: {
+      confidence: [
+        {
+          label:
+            "Low confidence: mostly assumption, little supporting evidence for reach or impact.",
+          value: 0.5,
+        },
+        {
+          label:
+            "Medium confidence: some supporting data, precedent, or a partial test.",
+          value: 0.8,
+        },
+        {
+          label:
+            "High confidence: strong supporting data, precedent, or a controlled test.",
+          value: 1,
+        },
+      ],
+      effort: [
+        {
+          label: "Extra small: well under one person-month.",
+          value: 0.5,
+        },
+        { label: "Small: about one person-month.", value: 1 },
+        { label: "Medium: two to three person-months.", value: 2.5 },
+        { label: "Large: four to six person-months.", value: 5 },
+        { label: "Extra large: more than six person-months.", value: 8 },
+      ],
+      impact: [
+        {
+          label: "Minimal: barely noticeable effect on the goal.",
+          value: 0.25,
+        },
+        { label: "Low: a small, measurable improvement.", value: 0.5 },
+        { label: "Medium: a clear, meaningful improvement.", value: 1 },
+        { label: "High: a strong improvement to a key metric.", value: 2 },
+        {
+          label: "Massive: a transformative improvement to a key metric.",
+          value: 3,
+        },
+      ],
+      reach: [
+        {
+          label: "Single locale, a small segment of users (under 5%).",
+          value: 1,
+        },
+        {
+          label: "A few locales or a mid-size segment (5-20%).",
+          value: 3,
+        },
+        {
+          label: "Most locales or a broad segment (20-50%).",
+          value: 6,
+        },
+        {
+          label: "All locales, a majority of active users (50-80%).",
+          value: 9,
+        },
+        {
+          label: "All locales, essentially the entire user base (over 80%).",
+          value: 12,
+        },
+      ],
+    },
     samples: [
       {
         label: "Clear request",
         values: {
           ...sampleIdentity,
-          company: "Daybreak",
-          companySize: "4 people",
-          projectNeeds:
-            "We are launching our first customer portal. We have chosen the stack and need help setting up a project and understanding the getting-started checklist.",
-          timeline: "First launch in three weeks",
+          bizPriority: "P1, supports the Q3 growth OKR",
+          description:
+            "Add Apple Pay and Google Pay at checkout. Support tickets and cart-abandonment data both point to missing wallet options as a top drop-off reason on mobile.",
+          gmvImpact: "+$200k monthly GMV, based on a competitor benchmark",
+          locales: "US, CA, UK",
+          projectName: "Wallet checkout",
+          timeline: "Needed before Q3 close",
         },
       },
       {
         label: "Overlapping needs",
         values: {
           ...sampleIdentity,
-          company: "Northstar",
-          companySize: "9 people",
-          projectNeeds:
-            "We are a small team supplying a national bank. Our proof of concept works, but before we can purchase, their vendor process requires a DPA, negotiated contract terms, and a completed security questionnaire.",
-          timeline: "Procurement review next Friday",
+          bizPriority: "P2",
+          description:
+            "Launch the storefront in Mexico and Brazil, which needs local payment methods (Pix, OXXO), Portuguese and Spanish translations, and BRL/MXN pricing.",
+          gmvImpact: "Unclear; new-market launch, no current baseline",
+          locales: "MX, BR",
+          projectName: "LatAm launch",
+          timeline: "Targeting next fiscal year",
         },
       },
       {
         label: "Limited context",
         values: {
           ...sampleIdentity,
-          company: "New Venture",
-          companySize: "Still deciding",
-          projectNeeds:
-            "We’re exploring a few ideas and would like to talk to someone. We don’t have requirements yet.",
-          timeline: "Not sure",
+          bizPriority: "Not sure yet",
+          description:
+            "Users have been complaining about the app. We should probably look into it and make things better.",
+          gmvImpact: "Unknown",
+          locales: "Not specified",
+          projectName: "App improvements",
+          timeline: "",
         },
       },
     ],
-    title: "Lead",
+    title: "Project",
   },
 } as const satisfies Record<ExampleId, ExampleDefinition>;
 
@@ -393,9 +509,6 @@ export type Example = (typeof examples)[ExampleId];
 
 /** An application-owned destination derived from the example registry. */
 export type Destination = Example["destinations"][number];
-
-/** The exact set of destination IDs supported by the router. */
-export type DestinationId = Destination["id"];
 
 /** Narrows an untrusted URL segment to a registered example. */
 export const isExampleId = (value: string): value is ExampleId =>

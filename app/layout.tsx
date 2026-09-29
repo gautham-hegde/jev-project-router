@@ -33,7 +33,7 @@ const RootLayout = ({ children }: Readonly<{ children: React.ReactNode }>) => (
           <div className="flex flex-col py-3">
             <h1 className="text-lg leading-6 font-semibold tracking-tight">
               <Link
-                href="/leads"
+                href="/projects"
                 className="focus-visible:ring-ring rounded-sm outline-none focus-visible:ring-2"
               >
                 Form Router

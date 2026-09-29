@@ -154,37 +154,6 @@ const DecisionDetails = ({
   );
 };
 
-const EmailPreview = ({
-  result,
-}: {
-  result: Extract<SubmissionResult, { status: "success" }>;
-}) => (
-  <details className="group border-t">
-    <summary className={disclosureClass}>
-      <DisclosureLabel>Email preview</DisclosureLabel>
-    </summary>
-    <div className="flex flex-col gap-4 pb-5">
-      <dl className="flex flex-col gap-1 text-sm">
-        <dt className="text-muted-foreground">Subject</dt>
-        <dd>{result.email.subject}</dd>
-      </dl>
-      <iframe
-        title="Notification email preview"
-        srcDoc={result.email.html}
-        sandbox=""
-        referrerPolicy="no-referrer"
-        className="h-80 w-full border"
-        loading="lazy"
-      />
-      {result.delivery.status === "accepted" && (
-        <p className="text-muted-foreground text-sm">
-          Accepted by Resend. Inbox delivery is not yet confirmed.
-        </p>
-      )}
-    </div>
-  </details>
-);
-
 const DecisionMetric = ({
   label,
   value,
@@ -244,6 +213,20 @@ const ResultContent = ({
               value={result.decision.jev?.selectedProbability}
             />
           </dl>
+          {result.decision.rice && (
+            <dl className="flex flex-col gap-1">
+              <dt className="text-muted-foreground text-sm">RICE priority</dt>
+              <dd className="font-mono text-xl tabular-nums sm:text-2xl">
+                {result.decision.rice.priority.toFixed(2)}
+              </dd>
+              <dd className="text-muted-foreground text-sm">
+                Reach {result.decision.rice.reach.value.toFixed(1)} · Impact{" "}
+                {result.decision.rice.impact.value.toFixed(2)} · Confidence{" "}
+                {result.decision.rice.confidence.value.toFixed(2)} · Effort{" "}
+                {result.decision.rice.effort.value.toFixed(1)}
+              </dd>
+            </dl>
+          )}
           {result.decision.fallbackReason && (
             <p className="text-muted-foreground text-sm leading-relaxed">
               {fallbackLabels[result.decision.fallbackReason]} Luna
@@ -251,21 +234,9 @@ const ResultContent = ({
               decision.
             </p>
           )}
-          {result.delivery.status === "failed" && (
-            <Alert variant="destructive">
-              <AlertTitle>Email not confirmed</AlertTitle>
-              <AlertDescription>{result.delivery.message}</AlertDescription>
-            </Alert>
-          )}
-          {result.delivery.status === "accepted" && (
-            <p className="text-muted-foreground text-sm">
-              Email accepted by Resend.
-            </p>
-          )}
         </div>
         <div>
           <DecisionDetails decision={result.decision} example={example} />
-          <EmailPreview result={result} />
         </div>
       </>
     );

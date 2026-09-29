@@ -43,6 +43,39 @@ const mockJev = (
   return { model };
 };
 
+const projectsExample = examples.projects;
+const projectsSubmission = projectsExample.samples[0].values;
+
+const mockProjectsJev = ({
+  confidence,
+  reachScore = 2,
+  impactScore = 3,
+  riceConfidenceScore = 2,
+  effortScore = 1,
+}: {
+  confidence: number | null;
+  reachScore?: number;
+  impactScore?: number;
+  riceConfidenceScore?: number;
+  effortScore?: number;
+}) =>
+  new Experimental_EvaluationMockModelV4({
+    doEvaluate: () =>
+      Promise.resolve({
+        answers: {
+          destination: { choice: "growth_acquisition", type: "choice" },
+          effort: { score: effortScore, type: "score" },
+          impact: { score: impactScore, type: "score" },
+          reach: { score: reachScore, type: "score" },
+          riceConfidence: { score: riceConfidenceScore, type: "score" },
+        },
+        providerMetadata: {
+          typesafe: { confidence: { destination: confidence } },
+        },
+        warnings: [],
+      }),
+  });
+
 const mockLuna = (destination = "support_access") =>
   new MockLanguageModelV4({
     doGenerate: {
@@ -181,6 +214,63 @@ describe("routing policy", () => {
     expect(prompt).not.toContain("probabilities");
     expect(prompt).not.toContain("confidence");
     expect(result.destination.id).toBe("contact_triage");
+  });
+});
+
+describe("RICE scoring", () => {
+  it("computes priority by interpolating each dimension's registered levels", async () => {
+    const result = await routeSubmission(projectsExample, projectsSubmission, {
+      jev: mockProjectsJev({ confidence: 0.99 }),
+      luna: mockLuna("eng_triage"),
+    });
+    // reach index 2 -> 6, impact index 3 -> 2, confidence index 2 -> 1, effort index 1 -> 1
+    expect(result.rice).toMatchObject({
+      confidence: { score: 2, value: 1 },
+      effort: { score: 1, value: 1 },
+      impact: { score: 3, value: 2 },
+      reach: { score: 2, value: 6 },
+    });
+    expect(result.rice?.priority).toBeCloseTo((6 * 2 * 1) / 1);
+  });
+
+  it("linearly interpolates a fractional score between two levels", async () => {
+    const result = await routeSubmission(projectsExample, projectsSubmission, {
+      jev: mockProjectsJev({ confidence: 0.99, reachScore: 1.5 }),
+      luna: mockLuna("eng_triage"),
+    });
+    // reach levels [1, 3, 6, 9, 12]; halfway between index 1 (3) and index 2 (6) is 4.5.
+    expect(result.rice?.reach).toMatchObject({ score: 1.5, value: 4.5 });
+  });
+
+  it("still computes RICE when low confidence sends the destination to Luna", async () => {
+    const result = await routeSubmission(projectsExample, projectsSubmission, {
+      jev: mockProjectsJev({ confidence: 0.5 }),
+      luna: mockLuna("eng_triage"),
+    });
+    expect(result.model).toBe("openai/gpt-6-luna-fast");
+    expect(result.destination.id).toBe("eng_triage");
+    expect(result.rice).not.toBeNull();
+  });
+
+  it("leaves RICE null when Jev's evaluation fails outright", async () => {
+    const jev = new Experimental_EvaluationMockModelV4({
+      doEvaluate: () => {
+        throw new Error("Unavailable");
+      },
+    });
+    const result = await routeSubmission(projectsExample, projectsSubmission, {
+      jev,
+      luna: mockLuna("eng_triage"),
+    });
+    expect(result.rice).toBeNull();
+  });
+
+  it("leaves RICE null for examples without registered criteria", async () => {
+    const result = await routeSubmission(example, submission, {
+      jev: mockJev(0.99).model,
+      luna: mockLuna(),
+    });
+    expect(result.rice).toBeNull();
   });
 });
 

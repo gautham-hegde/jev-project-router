@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 
 import { RouterForm } from "@/components/router-form";
 import { examples, isExampleId } from "@/lib/examples";
-import { isEmailConfigured } from "@/lib/submission";
 import { cn } from "@/lib/utils";
 
 interface PageProps {
@@ -39,7 +38,7 @@ const ExamplePage = async ({ params }: PageProps) => {
         aria-label="Form examples"
         className="flex gap-1 overflow-x-auto border-b"
       >
-        {[examples.leads, examples.contact, examples.issues].map((item) => (
+        {[examples.projects, examples.contact, examples.issues].map((item) => (
           <Link
             key={item.id}
             href={`/${item.id}`}
@@ -56,11 +55,7 @@ const ExamplePage = async ({ params }: PageProps) => {
           </Link>
         ))}
       </nav>
-      <RouterForm
-        key={id}
-        example={example}
-        emailConfigured={isEmailConfigured(example)}
-      />
+      <RouterForm key={id} example={example} />
     </main>
   );
 };
